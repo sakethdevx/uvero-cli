@@ -88,7 +88,7 @@ def send(
 
     code = result.get("data", {}).get("code", "")
     console.print(f"\n📋 [bold]Clipboard Code:[/bold] {code}")
-    console.print(f"🔗 [link]https://uvero.com/{code}[/link]")
+    console.print(f"🔗 [link]https://uvero.app/{code}[/link]")
 
 
 @app.command()

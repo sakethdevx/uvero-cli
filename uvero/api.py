@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import requests
 
-BASE_URL = "https://uvero.com"
+BASE_URL = "https://uvero.app"
 
 
 def _url(path: str) -> str:
