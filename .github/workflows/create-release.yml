@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version tag to create (e.g. v0.1.1)"
+        description: "Version tag to create (e.g. v0.1.2)"
         required: true
-        default: "v0.1.1"
+        default: "v0.1.2"
 
 jobs:
   create-release:
