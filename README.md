@@ -8,6 +8,25 @@
 pip install uvero
 ```
 
+## Quick start
+
+Run the built-in help first if you want a command overview:
+
+```bash
+uvero --help
+uvero send --help
+uvero get --help
+uvero board --help
+```
+
+## How the CLI works
+
+- `uvero send` uploads content and gives you a share code.
+- `uvero get CODE` retrieves content using that code.
+- A single `-` is special:
+  - `uvero send -` reads from your system clipboard.
+  - `uvero get CODE -` writes to your system clipboard.
+
 ## Usage
 
 ### Send content
@@ -36,8 +55,10 @@ uvero get 4832
 uvero get 4832 notes.txt
 
 # Copy directly to system clipboard
-uvero get 4832 -c
+uvero get 4832 -
 ```
+
+If you omit the output path, Uvero saves the content to `uvero_CODE.txt`.
 
 ### Boards (private shared clipboards)
 
@@ -53,11 +74,4 @@ uvero board send abcd-def   # interactive paste mode
 uvero board get abcd-def
 ```
 
-## Help
-
-```bash
-uvero --help
-uvero send --help
-uvero get --help
-uvero board --help
-```
+For detailed command help at any time, run `uvero --help` or `uvero <command> --help`.

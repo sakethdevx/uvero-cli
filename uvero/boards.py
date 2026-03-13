@@ -11,7 +11,16 @@ import typer
 from uvero import api
 from uvero.utils import console, handle_api_error, is_piped, read_file, read_stdin
 
-board_app = typer.Typer(help="Manage private boards.")
+board_app = typer.Typer(
+    help="Manage private shared boards.",
+    epilog=(
+        "Examples:\n"
+        "  uvero board create\n"
+        "  uvero board send abcd-def notes.txt\n"
+        "  uvero board send abcd-def\n"
+        "  uvero board get abcd-def"
+    ),
+)
 
 
 @board_app.command("create")
@@ -31,7 +40,10 @@ def board_create():
 @board_app.command("send")
 def board_send(
     board: str = typer.Argument(..., help="Board identifier"),
-    file: Optional[str] = typer.Argument(None, help="File to upload (omit for paste mode)"),
+    file: Optional[str] = typer.Argument(
+        None,
+        help="File to upload. Omit for interactive paste or pipe stdin.",
+    ),
 ):
     """Send content to a board."""
     if file:

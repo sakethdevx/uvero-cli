@@ -1,4 +1,4 @@
-"""Main CLI entry point – exposes the `uv` command."""
+"""Main CLI entry point for the `uvero` command."""
 
 from __future__ import annotations
 
@@ -18,8 +18,27 @@ console = Console()
 
 app = typer.Typer(
     name="uvero",
-    help="Uvero – online clipboard from your terminal.",
+    help=(
+        "Share text through the Uvero online clipboard.\n\n"
+        "Use `uvero send` to upload text from a file, stdin, interactive paste, "
+        "or your system clipboard. Use `uvero get CODE` to save content to a file, "
+        "or `uvero get CODE -` to copy it directly to your clipboard.\n\n"
+        "Use `uvero board` for private shared boards."
+    ),
+    epilog=(
+        "Examples:\n"
+        "  uvero send\n"
+        "  uvero send notes.txt\n"
+        "  uvero send -\n"
+        "  cat notes.txt | uvero send\n"
+        "  uvero get 1234\n"
+        "  uvero get 1234 notes.txt\n"
+        "  uvero get 1234 -\n"
+        "  uvero board --help"
+    ),
     no_args_is_help=True,
+    context_settings={"help_option_names": ["-h", "--help"]},
+    rich_markup_mode="rich",
 )
 
 app.add_typer(board_app, name="board")
@@ -33,20 +52,24 @@ def _check_health() -> None:
         console.print("[bold yellow]⚠ Uvero service unavailable.[/bold yellow]")
 
 
-@app.command()
+@app.command(
+    help="Send text to Uvero from a file, stdin, interactive paste, or the system clipboard.",
+    epilog=(
+        "Examples:\n"
+        "  uvero send\n"
+        "  uvero send notes.txt\n"
+        "  cat notes.txt | uvero send\n"
+        "  uvero send -"
+    ),
+)
 def send(
     file: Optional[str] = typer.Argument(
         None,
-        help="File to send. Use '-' to send the system clipboard.",
+        metavar="[FILE|-]",
+        help="File to send. Omit for interactive paste, pipe stdin, or use '-' to send your clipboard.",
     ),
 ):
-    """Send content to the Uvero clipboard.
-
-    \b
-    uv send            – interactive paste mode (or piped stdin)
-    uv send file.txt   – send a file
-    uv send -          – send system clipboard contents
-    """
+    """Send content to the Uvero clipboard."""
     _check_health()
 
     if file == "-":
@@ -91,26 +114,24 @@ def send(
     console.print(f"🔗 [link]https://uvero.app/{code}[/link]")
 
 
-@app.command()
+@app.command(
+    help="Retrieve text from Uvero and save it to a file, or use '-' to copy it to the system clipboard.",
+    epilog=(
+        "Examples:\n"
+        "  uvero get 1234\n"
+        "  uvero get 1234 notes.txt\n"
+        "  uvero get 1234 -"
+    ),
+)
 def get(
-    code: str = typer.Argument(..., help="Clipboard code to retrieve"),
+    code: str = typer.Argument(..., metavar="CODE", help="Clipboard code to retrieve."),
     output: Optional[str] = typer.Argument(
         None,
-        help="File path to write content to. Omit to auto-generate (uvero_CODE.txt).",
-    ),
-    copy: bool = typer.Option(
-        False,
-        "-c",
-        help="Copy retrieved content to system clipboard.",
+        metavar="[OUTPUT|-]",
+        help="Destination file path. Use '-' to copy to the clipboard. Omit to save as uvero_CODE.txt.",
     ),
 ):
-    """Retrieve content from the Uvero clipboard.
-
-    \b
-    uv get 4832           – save to uvero_4832.txt
-    uv get 4832 notes.txt – save to notes.txt
-    uv get 4832 -c        – copy to system clipboard
-    """
+    """Retrieve content from the Uvero clipboard."""
     _check_health()
 
     try:
@@ -123,7 +144,7 @@ def get(
 
     content = result.get("data", {}).get("content", "")
 
-    if copy:
+    if output == "-":
         try:
             write_clipboard(content)
         except Exception as exc:
