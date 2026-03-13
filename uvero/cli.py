@@ -12,7 +12,7 @@ from rich.console import Console
 from uvero import api
 from uvero.boards import board_app
 from uvero.clipboard import read_clipboard, write_clipboard
-from uvero.utils import handle_api_error, is_piped, read_file, read_stdin, write_file
+from uvero.utils import auto_upgrade, handle_api_error, is_piped, read_file, read_stdin, write_file
 
 console = Console()
 
@@ -42,6 +42,12 @@ app = typer.Typer(
 )
 
 app.add_typer(board_app, name="board")
+
+
+@app.callback(invoke_without_command=True)
+def _startup(ctx: typer.Context) -> None:
+    """Run before every command: check for updates."""
+    auto_upgrade()
 
 
 def _check_health() -> None:

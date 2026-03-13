@@ -60,6 +60,12 @@ uvero get 4832 -
 
 If you omit the output path, Uvero saves the content to `uvero_CODE.txt`.
 
+## Auto-updates
+
+- On startup, Uvero checks PyPI (max once every 24 hours) and auto-upgrades when a newer version is available.
+- The updated version is used from the next command run.
+- To disable auto-upgrade, set `UVERO_AUTO_UPGRADE=0`.
+
 ### Boards (private shared clipboards)
 
 ```bash

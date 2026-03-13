@@ -1,5 +1,6 @@
 """Shared utilities used across CLI commands."""
 
+import os
 import sys
 from pathlib import Path
 
@@ -34,3 +35,102 @@ def handle_api_error(response: dict) -> None:
         error_msg = response.get("error", "Unknown error")
         console.print(f"[bold red]❌ Error:[/bold red] {error_msg}")
         raise SystemExit(1)
+
+
+# ---------------------------------------------------------------------------
+# Auto-upgrade helpers
+# ---------------------------------------------------------------------------
+
+import json
+import subprocess
+import time
+import urllib.error
+import urllib.request
+from typing import Optional
+
+_CACHE_DIR = Path.home() / ".uvero"
+_CACHE_FILE = _CACHE_DIR / ".version_check"
+_CHECK_INTERVAL = 86400  # 24 hours in seconds
+_PYPI_URL = "https://pypi.org/pypi/uvero/json"
+
+
+def _read_cache() -> dict:
+    try:
+        return json.loads(_CACHE_FILE.read_text())
+    except Exception:
+        return {}
+
+
+def _write_cache(data: dict) -> None:
+    try:
+        _CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        _CACHE_FILE.write_text(json.dumps(data))
+    except Exception:
+        pass
+
+
+def _latest_pypi_version() -> Optional[str]:
+    """Fetch the latest published version from PyPI (returns None on any failure)."""
+    try:
+        with urllib.request.urlopen(_PYPI_URL, timeout=5) as resp:
+            data = json.load(resp)
+            return data["info"]["version"]
+    except Exception:
+        return None
+
+
+def _parse_version(v: str) -> tuple[int, ...]:
+    try:
+        return tuple(int(x) for x in v.split("."))
+    except Exception:
+        return (0,)
+
+
+def auto_upgrade() -> None:
+    """Check PyPI at most once per day and auto-upgrade if a newer version exists."""
+    from uvero import __version__
+
+    if os.environ.get("UVERO_AUTO_UPGRADE", "1").strip().lower() in {
+        "0",
+        "false",
+        "no",
+        "off",
+    }:
+        return
+
+    cache = _read_cache()
+    now = time.time()
+
+    # Use cached latest version if the cache is fresh
+    if now - cache.get("checked_at", 0) < _CHECK_INTERVAL:
+        latest = cache.get("latest")
+    else:
+        latest = _latest_pypi_version()
+        _write_cache({"checked_at": now, "latest": latest})
+
+    if not latest:
+        return
+
+    if _parse_version(latest) <= _parse_version(__version__):
+        return  # already up to date
+
+    console.print(
+        f"[dim]🔄 New version available: [bold]v{latest}[/bold]. Upgrading…[/dim]"
+    )
+    try:
+        subprocess.run(
+            [sys.executable, "-m", "pip", "install", "--upgrade", "--quiet", "uvero"],
+            check=True,
+            timeout=60,
+        )
+        console.print(
+            f"[bold green]✔ Upgraded to v{latest}[/bold green] "
+            "[dim](takes effect on next run)[/dim]"
+        )
+        # Invalidate cache so we don't re-upgrade immediately
+        _write_cache({"checked_at": now, "latest": latest})
+    except Exception:
+        console.print(
+            f"[yellow]⚠ Could not auto-upgrade. Run:[/yellow] "
+            f"[bold]pip install --upgrade uvero[/bold]"
+        )
