@@ -14,50 +14,50 @@ pip install uvero
 
 ```bash
 # Interactive paste mode (CTRL+D to finish)
-uv send
+uvero send
 
 # Send a file
-uv send notes.txt
+uvero send notes.txt
 
 # Send system clipboard contents
-uv send -
+uvero send -
 
 # Pipe data
-cat log.txt | uv send
+cat log.txt | uvero send
 ```
 
 ### Retrieve content
 
 ```bash
 # Save to uvero_4832.txt
-uv get 4832
+uvero get 4832
 
 # Save to a specific file
-uv get 4832 notes.txt
+uvero get 4832 notes.txt
 
 # Copy directly to system clipboard
-uv get 4832 -c
+uvero get 4832 -c
 ```
 
 ### Boards (private shared clipboards)
 
 ```bash
 # Create a board
-uv board create
+uvero board create
 
 # Send to a board
-uv board send abcd-def notes.txt
-uv board send abcd-def   # interactive paste mode
+uvero board send abcd-def notes.txt
+uvero board send abcd-def   # interactive paste mode
 
 # Get board content
-uv board get abcd-def
+uvero board get abcd-def
 ```
 
 ## Help
 
 ```bash
-uv --help
-uv send --help
-uv get --help
-uv board --help
+uvero --help
+uvero send --help
+uvero get --help
+uvero board --help
 ```

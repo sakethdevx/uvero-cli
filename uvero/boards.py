@@ -7,7 +7,6 @@ import sys
 from typing import Optional
 
 import typer
-from rich.console import Console
 
 from uvero import api
 from uvero.utils import console, handle_api_error, is_piped, read_file, read_stdin

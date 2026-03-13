@@ -17,7 +17,7 @@ from uvero.utils import handle_api_error, is_piped, read_file, read_stdin, write
 console = Console()
 
 app = typer.Typer(
-    name="uv",
+    name="uvero",
     help="Uvero – online clipboard from your terminal.",
     no_args_is_help=True,
 )
