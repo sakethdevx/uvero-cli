@@ -1,0 +1,14 @@
+README.md
+pyproject.toml
+uvero/__init__.py
+uvero/api.py
+uvero/boards.py
+uvero/cli.py
+uvero/clipboard.py
+uvero/utils.py
+uvero.egg-info/PKG-INFO
+uvero.egg-info/SOURCES.txt
+uvero.egg-info/dependency_links.txt
+uvero.egg-info/entry_points.txt
+uvero.egg-info/requires.txt
+uvero.egg-info/top_level.txt
