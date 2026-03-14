@@ -1,3 +1,3 @@
 """Uvero CLI package – online clipboard from your terminal."""
 
-__version__ = "0.1.4"
+__version__ = "0.2.6"
