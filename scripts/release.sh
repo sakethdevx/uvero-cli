@@ -14,9 +14,9 @@ echo "🚀 Bumping version to $VERSION"
 
 # Update pyproject.toml
 if [[ "$OSTYPE" == "darwin"* ]]; then
-    sed -i '' "s/version = \".*\"/version = \"$VERSION\"/" pyproject.toml
+    sed -i '' "s/^version = \".*\"/version = \"$VERSION\"/" pyproject.toml
 else
-    sed -i "s/version = \".*\"/version = \"$VERSION\"/" pyproject.toml
+    sed -i "s/^version = \".*\"/version = \"$VERSION\"/" pyproject.toml
 fi
 
 # Determine previous tag to generate changelog
