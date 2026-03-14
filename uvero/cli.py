@@ -6,6 +6,7 @@ import re
 import sys
 import webbrowser
 from importlib import metadata
+from pathlib import Path
 from typing import Optional
 
 import typer
@@ -123,20 +124,20 @@ def _call_api(api_function, *args, **kwargs) -> dict:
     """Run a backend call and map connection failures to a clean CLI message."""
     try:
         return api_function(*args, **kwargs)
-    except api.UveroServiceConnectionError:
+    except api.UveroServiceConnectionError as exc:
         msg = "Cannot reach Uvero service"
         if state.get_config("output_mode") == "json":
             print_json_output({"success": False, "error": msg})
         else:
             print_message(f"[bold red]{msg}[/bold red]", is_error=True, emoji="❌")
-        raise typer.Exit(EXIT_NETWORK_ERR)
+        raise typer.Exit(EXIT_NETWORK_ERR) from exc
     except Exception as exc:
         msg = str(exc)
         if state.get_config("output_mode") == "json":
             print_json_output({"success": False, "error": msg})
         else:
             print_message(msg, is_error=True, emoji="❌")
-        raise typer.Exit(EXIT_API_ERR)
+        raise typer.Exit(EXIT_API_ERR) from exc
 
 
 def _validate_code(code: str) -> None:
@@ -198,7 +199,7 @@ def send(
                 print_json_output({"success": False, "error": msg})
             else:
                 print_message(str(exc), is_error=True, emoji="❌")
-            raise typer.Exit(EXIT_VALIDATION_ERR)
+            raise typer.Exit(EXIT_VALIDATION_ERR) from exc
     elif file:
         # Read from the given file path
         try:
@@ -209,7 +210,7 @@ def send(
                 print_json_output({"success": False, "error": msg})
             else:
                 print_message(msg, is_error=True, emoji="❌")
-            raise typer.Exit(EXIT_VALIDATION_ERR)
+            raise typer.Exit(EXIT_VALIDATION_ERR) from exc
     elif is_piped():
         # Data piped via stdin
         content = read_stdin()
@@ -331,7 +332,7 @@ def get(
             write_clipboard(content)
         except Exception as exc:
             print_message(str(exc), is_error=True, emoji="❌")
-            raise typer.Exit(EXIT_VALIDATION_ERR)
+            raise typer.Exit(EXIT_VALIDATION_ERR) from exc
         print_message("[bold green]Copied to clipboard[/bold green]", emoji="✔")
         return
 
@@ -341,7 +342,7 @@ def get(
         write_file(dest, content)
     except OSError as exc:
         print_message(str(exc), is_error=True, emoji="❌")
-        raise typer.Exit(EXIT_VALIDATION_ERR)
+        raise typer.Exit(EXIT_VALIDATION_ERR) from exc
 
     print_message(f"[bold green]Saved to:[/bold green] {dest}", emoji="✔")
 

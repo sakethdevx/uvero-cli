@@ -2,8 +2,13 @@
 
 import json
 import os
+import subprocess
 import sys
+import time
+import urllib.error
+import urllib.request
 from pathlib import Path
+from typing import Optional
 
 from rich.console import Console
 
@@ -14,7 +19,7 @@ console = Console()
 
 def print_message(message: str, is_error: bool = False, emoji: str = "") -> None:
     """Print a rich formatted message respecting global UX flags.
-    
+
     If `--quiet` is enabled, only process errors.
     If `--no-emoji` is enabled, strip the emoji.
     """
@@ -72,12 +77,6 @@ def handle_api_error(response: dict) -> None:
 # ---------------------------------------------------------------------------
 # Auto-upgrade helpers
 # ---------------------------------------------------------------------------
-
-import subprocess
-import time
-import urllib.error
-import urllib.request
-from typing import Optional
 
 _CACHE_DIR = Path.home() / ".uvero"
 _CACHE_FILE = _CACHE_DIR / ".version_check"

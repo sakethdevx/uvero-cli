@@ -27,12 +27,12 @@ def _call_api(api_function, *args, **kwargs) -> dict:
     """Run a backend call and map connection failures to a clean CLI message."""
     try:
         return api_function(*args, **kwargs)
-    except api.UveroServiceConnectionError:
+    except api.UveroServiceConnectionError as exc:
         console.print("[bold red]❌ Cannot reach Uvero service[/bold red]")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from exc
     except Exception as exc:
         console.print(f"[bold red]❌ Error:[/bold red] {exc}")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from exc
 
 
 @board_app.command("create")
@@ -59,7 +59,7 @@ def board_send(
             content = read_file(file)
         except OSError as exc:
             console.print(f"[bold red]❌ Error:[/bold red] {exc}")
-            raise typer.Exit(1)
+            raise typer.Exit(1) from exc
     elif is_piped():
         content = read_stdin()
     else:
