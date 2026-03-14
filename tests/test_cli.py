@@ -1,11 +1,12 @@
 import os
-os.environ["UVERO_AUTO_UPGRADE"] = "0"
 
 import pytest
 from typer.testing import CliRunner
 
 from uvero.cli import app
 from uvero.config import state
+
+os.environ["UVERO_AUTO_UPGRADE"] = "0"
 
 runner = CliRunner()
 
