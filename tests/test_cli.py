@@ -1,3 +1,6 @@
+import os
+os.environ["UVERO_AUTO_UPGRADE"] = "0"
+
 import pytest
 from typer.testing import CliRunner
 
