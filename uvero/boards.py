@@ -23,14 +23,22 @@ board_app = typer.Typer(
 )
 
 
-@board_app.command("create")
-def board_create():
-    """Create a new private board."""
+def _call_api(api_function, *args, **kwargs) -> dict:
+    """Run a backend call and map connection failures to a clean CLI message."""
     try:
-        result = api.create_board()
+        return api_function(*args, **kwargs)
+    except api.UveroServiceConnectionError:
+        console.print("[bold red]❌ Cannot reach Uvero service[/bold red]")
+        raise typer.Exit(1)
     except Exception as exc:
         console.print(f"[bold red]❌ Error:[/bold red] {exc}")
         raise typer.Exit(1)
+
+
+@board_app.command("create")
+def board_create():
+    """Create a new private board."""
+    result = _call_api(api.create_board)
 
     handle_api_error(result)
     board_id = result.get("data", {}).get("board") or result.get("data", {}).get("id", "")
@@ -61,11 +69,7 @@ def board_send(
         except EOFError:
             content = ""
 
-    try:
-        result = api.send_board(board, content)
-    except Exception as exc:
-        console.print(f"[bold red]❌ Error:[/bold red] {exc}")
-        raise typer.Exit(1)
+    result = _call_api(api.send_board, board, content)
 
     handle_api_error(result)
     console.print(f"[bold green]✔ Sent to board:[/bold green] {board}")
@@ -76,20 +80,12 @@ def board_get(
     board: str = typer.Argument(..., help="Board identifier"),
 ):
     """Retrieve content from a board."""
-    try:
-        result = api.get_board(board)
-    except Exception as exc:
-        console.print(f"[bold red]❌ Error:[/bold red] {exc}")
-        raise typer.Exit(1)
+    result = _call_api(api.get_board, board)
 
     # Handle password-protected boards
     if result.get("requiresPassword"):
         password = getpass.getpass("Board password: ")
-        try:
-            result = api.get_board(board, password=password)
-        except Exception as exc:
-            console.print(f"[bold red]❌ Error:[/bold red] {exc}")
-            raise typer.Exit(1)
+        result = _call_api(api.get_board, board, password=password)
 
     handle_api_error(result)
     content = result.get("data", {}).get("content", "")

@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import re
 import sys
-from pathlib import Path
+import webbrowser
+from importlib import metadata
 from typing import Optional
 
 import typer
@@ -15,6 +17,7 @@ from uvero.clipboard import read_clipboard, write_clipboard
 from uvero.utils import auto_upgrade, handle_api_error, is_piped, read_file, read_stdin, write_file
 
 console = Console()
+CODE_PATTERN = re.compile(r"^[0-9]{4}$")
 
 app = typer.Typer(
     name="uvero",
@@ -22,18 +25,22 @@ app = typer.Typer(
         "Share text through the Uvero online clipboard.\n\n"
         "Use `uvero send` to upload text from a file, stdin, interactive paste, "
         "or your system clipboard. Use `uvero get CODE` to save content to a file, "
-        "or `uvero get CODE -` to copy it directly to your clipboard.\n\n"
+        "or `uvero get CODE -` to copy it directly to your clipboard. "
+        "Use `uvero open CODE` to open a share URL in your browser.\n\n"
         "Use `uvero board` for private shared boards."
     ),
     epilog=(
         "Examples:\n"
         "  uvero send\n"
         "  uvero send notes.txt\n"
+        "  uvero send notes.txt --raw\n"
         "  uvero send -\n"
         "  cat notes.txt | uvero send\n"
         "  uvero get 1234\n"
         "  uvero get 1234 notes.txt\n"
         "  uvero get 1234 -\n"
+        "  uvero open 1234\n"
+        "  uvero version\n"
         "  uvero board --help"
     ),
     no_args_is_help=True,
@@ -50,12 +57,28 @@ def _startup(ctx: typer.Context) -> None:
     auto_upgrade()
 
 
-def _check_health() -> None:
-    """Silently verify that the Uvero service is reachable."""
+def _call_api(api_function, *args, **kwargs) -> dict:
+    """Run a backend call and map connection failures to a clean CLI message."""
     try:
-        api.health_check()
-    except Exception:
-        console.print("[bold yellow]⚠ Uvero service unavailable.[/bold yellow]")
+        return api_function(*args, **kwargs)
+    except api.UveroServiceConnectionError:
+        console.print("[bold red]❌ Cannot reach Uvero service[/bold red]")
+        raise typer.Exit(1)
+    except Exception as exc:
+        console.print(f"[bold red]❌ Error:[/bold red] {exc}")
+        raise typer.Exit(1)
+
+
+def _validate_code(code: str) -> None:
+    """Validate that *code* uses the expected 4-digit format."""
+    if not CODE_PATTERN.fullmatch(code):
+        console.print("[bold red]❌ Clipboard code must be a 4 digit number.[/bold red]")
+        raise typer.Exit(1)
+
+
+def _public_clipboard_url(code: str) -> str:
+    """Return the public share URL for the clipboard *code*."""
+    return f"{api.BASE_URL}/c/{code}"
 
 
 @app.command(
@@ -74,10 +97,13 @@ def send(
         metavar="[FILE|-]",
         help="File to send. Omit for interactive paste, pipe stdin, or use '-' to send your clipboard.",
     ),
+    raw: bool = typer.Option(
+        False,
+        "--raw",
+        help="Print only the clipboard code (useful for scripting).",
+    ),
 ):
     """Send content to the Uvero clipboard."""
-    _check_health()
-
     if file == "-":
         # Read from system clipboard
         try:
@@ -107,17 +133,27 @@ def send(
         console.print("[bold red]❌ Error:[/bold red] Nothing to send.")
         raise typer.Exit(1)
 
-    try:
-        result = api.send_clipboard(content)
-    except Exception as exc:
-        console.print(f"[bold red]❌ Error:[/bold red] {exc}")
-        raise typer.Exit(1)
-
+    result = _call_api(api.send_clipboard, content)
     handle_api_error(result)
 
-    code = result.get("data", {}).get("code", "")
-    console.print(f"\n📋 [bold]Clipboard Code:[/bold] {code}")
-    console.print(f"🔗 [link]https://uvero.app/{code}[/link]")
+    code = str(result.get("data", {}).get("code", "")).strip()
+    if not code:
+        console.print("[bold red]❌ Error:[/bold red] Missing clipboard code in response.")
+        raise typer.Exit(1)
+
+    if raw:
+        console.print(code)
+        return
+
+    console.print(f"📋 Clipboard Code: {code}")
+    try:
+        write_clipboard(code)
+    except Exception:
+        console.print("[yellow]⚠ Could not copy code to clipboard[/yellow]")
+    else:
+        console.print("[bold green]✔ Code copied to clipboard[/bold green]")
+
+    console.print(f"🔗 [link]{_public_clipboard_url(code)}[/link]")
 
 
 @app.command(
@@ -138,13 +174,9 @@ def get(
     ),
 ):
     """Retrieve content from the Uvero clipboard."""
-    _check_health()
+    _validate_code(code)
 
-    try:
-        result = api.get_clipboard(code)
-    except Exception as exc:
-        console.print(f"[bold red]❌ Error:[/bold red] {exc}")
-        raise typer.Exit(1)
+    result = _call_api(api.get_clipboard, code)
 
     handle_api_error(result)
 
@@ -168,6 +200,40 @@ def get(
         raise typer.Exit(1)
 
     console.print(f"[bold green]✔ Saved to:[/bold green] {dest}")
+
+
+@app.command(
+    help="Open a public clipboard URL in your default browser.",
+    epilog=(
+        "Examples:\n"
+        "  uvero open 4832"
+    ),
+)
+def open(
+    code: str = typer.Argument(..., metavar="CODE", help="Clipboard code to open."),
+):
+    """Open a clipboard share page in the default web browser."""
+    _validate_code(code)
+
+    url = _public_clipboard_url(code)
+    if not webbrowser.open(url):
+        console.print("[bold red]❌ Error:[/bold red] Could not open browser.")
+        raise typer.Exit(1)
+
+    console.print(f"🔗 {url}")
+
+
+@app.command(help="Show the installed Uvero CLI version.")
+def version() -> None:
+    """Print the installed Uvero CLI version."""
+    try:
+        installed_version = metadata.version("uvero")
+    except metadata.PackageNotFoundError:
+        from uvero import __version__
+
+        installed_version = __version__
+
+    console.print(f"Uvero CLI v{installed_version}")
 
 
 if __name__ == "__main__":

@@ -16,12 +16,15 @@ Run the built-in help first if you want a command overview:
 uvero --help
 uvero send --help
 uvero get --help
+uvero open --help
+uvero version
 uvero board --help
 ```
 
 ## How the CLI works
 
-- `uvero send` uploads content and gives you a share code.
+- `uvero send` uploads content, gives you a share code, and copies the code to your clipboard.
+- Public share links use `https://uvero.app/c/CODE`.
 - `uvero get CODE` retrieves content using that code.
 - A single `-` is special:
   - `uvero send -` reads from your system clipboard.
@@ -43,6 +46,9 @@ uvero send -
 
 # Pipe data
 cat log.txt | uvero send
+
+# Print only the code (for scripting)
+uvero send notes.txt --raw
 ```
 
 ### Retrieve content
@@ -59,6 +65,18 @@ uvero get 4832 -
 ```
 
 If you omit the output path, Uvero saves the content to `uvero_CODE.txt`.
+
+### Open a clipboard link in browser
+
+```bash
+uvero open 4832
+```
+
+### Show CLI version
+
+```bash
+uvero version
+```
 
 ## Auto-updates
 
