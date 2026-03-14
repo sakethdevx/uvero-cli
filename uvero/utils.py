@@ -42,7 +42,6 @@ def print_json_output(data: dict) -> None:
     print(json.dumps(data, indent=2))
 
 
-
 def read_stdin() -> str:
     """Read all text from standard input (piped or interactive paste mode)."""
     return sys.stdin.read()
@@ -118,8 +117,7 @@ def _parse_version(v: str) -> tuple[int, ...]:
 
 def _in_virtualenv() -> bool:
     return bool(
-        hasattr(sys, "real_prefix")
-        or getattr(sys, "base_prefix", sys.prefix) != sys.prefix
+        hasattr(sys, "real_prefix") or getattr(sys, "base_prefix", sys.prefix) != sys.prefix
     )
 
 
@@ -160,7 +158,10 @@ def auto_upgrade(explicit: bool = False) -> None:
             if state.get_config("output_mode") == "json":
                 print_json_output({"success": True, "up_to_date": True, "version": latest})
             else:
-                print_message(f"[bold green]You are already on the latest version ({latest})[/bold green]", emoji="✔")
+                print_message(
+                    f"[bold green]You are already on the latest version ({latest})[/bold green]",
+                    emoji="✔",
+                )
         return  # already up to date
 
     if state.get_config("output_mode") == "json":
@@ -191,7 +192,7 @@ def auto_upgrade(explicit: bool = False) -> None:
         if state.get_config("output_mode") != "json":
             print_message(
                 f"[bold green]Upgraded to v{latest}[/bold green] [dim](takes effect on next run)[/dim]",
-                emoji="✔"
+                emoji="✔",
             )
         # Invalidate cache so we don't re-upgrade immediately
         _write_cache({"checked_at": now, "latest": latest})

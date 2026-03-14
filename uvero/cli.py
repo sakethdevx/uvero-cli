@@ -90,15 +90,9 @@ def _startup(
     json: bool = typer.Option(
         False, "--json", help="Format output as JSON (useful for scripting)."
     ),
-    quiet: bool = typer.Option(
-        False, "-q", "--quiet", help="Suppress non-error output."
-    ),
-    no_color: bool = typer.Option(
-        False, "--no-color", help="Disable rich colored output."
-    ),
-    no_emoji: bool = typer.Option(
-        False, "--no-emoji", help="Disable emojis in terminal output."
-    ),
+    quiet: bool = typer.Option(False, "-q", "--quiet", help="Suppress non-error output."),
+    no_color: bool = typer.Option(False, "--no-color", help="Disable rich colored output."),
+    no_emoji: bool = typer.Option(False, "--no-emoji", help="Disable emojis in terminal output."),
 ) -> None:
     """Run before every command: handle global flags and updates."""
     # Apply global UX state
@@ -217,7 +211,9 @@ def send(
     else:
         # Interactive paste mode
         if not state.get_config("quiet") and state.get_config("output_mode") != "json":
-            print_message("[dim]Paste your text below. Press CTRL+D (Linux/Mac) or CTRL+Z (Windows) when done.[/dim]")
+            print_message(
+                "[dim]Paste your text below. Press CTRL+D (Linux/Mac) or CTRL+Z (Windows) when done.[/dim]"
+            )
         try:
             content = sys.stdin.read()
         except EOFError:
@@ -250,19 +246,22 @@ def send(
         return
 
     if state.get_config("output_mode") == "json":
-        print_json_output({
-            "success": True,
-            "data": {
-                "code": code,
-                "url": url,
+        print_json_output(
+            {
+                "success": True,
+                "data": {
+                    "code": code,
+                    "url": url,
+                },
             }
-        })
+        )
         return
 
     auto_open = open_browser or state.get_config("auto_open")
     if auto_open:
         try:
             import webbrowser
+
             webbrowser.open(url)
         except Exception:
             pass
@@ -285,12 +284,7 @@ def send(
 
 @app.command(
     help="Retrieve text from Uvero and save it to a file, or use '-' to copy it to the system clipboard.",
-    epilog=(
-        "Examples:\n"
-        "  uvero get 1234\n"
-        "  uvero get 1234 notes.txt\n"
-        "  uvero get 1234 -"
-    ),
+    epilog=("Examples:\n  uvero get 1234\n  uvero get 1234 notes.txt\n  uvero get 1234 -"),
 )
 def get(
     code: str = typer.Argument(..., metavar="CODE", help="Clipboard code to retrieve."),
@@ -315,10 +309,7 @@ def get(
     content = result.get("data", {}).get("content", "")
 
     if state.get_config("output_mode") == "json":
-        print_json_output({
-            "success": True,
-            "data": result.get("data")
-        })
+        print_json_output({"success": True, "data": result.get("data")})
         return
 
     if stdout:
@@ -349,11 +340,7 @@ def get(
 
 @app.command(
     help="Open Uvero in your default browser.",
-    epilog=(
-        "Examples:\n"
-        "  uvero open\n"
-        "  uvero open 4832"
-    ),
+    epilog=("Examples:\n  uvero open\n  uvero open 4832"),
 )
 def open(
     code: Optional[str] = typer.Argument(
@@ -401,10 +388,13 @@ def health() -> None:
 def doctor() -> None:
     """Run local environment and configuration diagnostics."""
     from uvero.config import _CONFIG_FILE
+
     diagnostics = {
         "python_version": sys.version.split(" ")[0],
         "uvero_version": _installed_version(),
-        "config_path": str(_CONFIG_FILE) if 'uvero.config' in sys.modules else str(Path.home() / ".uvero/config.json"),
+        "config_path": str(_CONFIG_FILE)
+        if "uvero.config" in sys.modules
+        else str(Path.home() / ".uvero/config.json"),
         "network_reachable": False,
         "clipboard_read": False,
         "clipboard_write": False,
@@ -446,7 +436,10 @@ def doctor() -> None:
     if diagnostics["clipboard_read"]:
         print_message("[bold green]System clipboard module loaded[/bold green]", emoji="✔")
     else:
-        print_message("[bold red]Clipboard interaction not supported[/bold red] (Please install xclip / xsel if on Linux)", emoji="❌")
+        print_message(
+            "[bold red]Clipboard interaction not supported[/bold red] (Please install xclip / xsel if on Linux)",
+            emoji="❌",
+        )
 
 
 @app.command(help="Check for updates and explicitly upgrade the CLI.")
@@ -461,6 +454,7 @@ def update() -> None:
 
     # We call auto_upgrade but bypass the 24h cache check by removing the cache file if it exists
     from pathlib import Path
+
     try:
         cache_file = Path.home() / ".uvero" / ".version_check"
         if cache_file.exists():
