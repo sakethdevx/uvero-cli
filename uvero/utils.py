@@ -1,12 +1,41 @@
 """Shared utilities used across CLI commands."""
 
+import json
 import os
 import sys
 from pathlib import Path
 
 from rich.console import Console
 
+from uvero.config import EXIT_API_ERR, state
+
 console = Console()
+
+
+def print_message(message: str, is_error: bool = False, emoji: str = "") -> None:
+    """Print a rich formatted message respecting global UX flags.
+    
+    If `--quiet` is enabled, only process errors.
+    If `--no-emoji` is enabled, strip the emoji.
+    """
+    if state.get_config("quiet") and not is_error:
+        return
+
+    emoji_prefix = f"{emoji} " if emoji and not state.get_config("no_emoji") else ""
+    formatted_message = f"{emoji_prefix}{message}"
+
+    if is_error:
+        console.print(f"[bold red]{emoji_prefix}Error:[/bold red] {message}", stderr=True)
+    else:
+        console.print(formatted_message)
+
+
+def print_json_output(data: dict) -> None:
+    """Print JSON output mapping to stdout."""
+    # Ensure stdout isn't colored unless explicitly forcing rich JSON
+    # Python json.dumps guarantees machine readability
+    print(json.dumps(data, indent=2))
+
 
 
 def read_stdin() -> str:
@@ -33,15 +62,17 @@ def handle_api_error(response: dict) -> None:
     """Print a rich error message and raise SystemExit if the API returned an error."""
     if not response.get("success", True):
         error_msg = response.get("error", "Unknown error")
-        console.print(f"[bold red]❌ Error:[/bold red] {error_msg}")
-        raise SystemExit(1)
+        if state.get_config("output_mode") == "json":
+            print_json_output({"success": False, "error": error_msg})
+        else:
+            print_message(error_msg, is_error=True, emoji="❌")
+        raise SystemExit(EXIT_API_ERR)
 
 
 # ---------------------------------------------------------------------------
 # Auto-upgrade helpers
 # ---------------------------------------------------------------------------
 
-import json
 import subprocess
 import time
 import urllib.error
@@ -93,11 +124,12 @@ def _in_virtualenv() -> bool:
     )
 
 
-def auto_upgrade() -> None:
+def auto_upgrade(explicit: bool = False) -> None:
     """Check PyPI at most once per day and auto-upgrade if a newer version exists."""
     from uvero import __version__
+    from uvero.config import state
 
-    if os.environ.get("UVERO_AUTO_UPGRADE", "1").strip().lower() in {
+    if not explicit and os.environ.get("UVERO_AUTO_UPGRADE", "1").strip().lower() in {
         "0",
         "false",
         "no",
@@ -108,22 +140,35 @@ def auto_upgrade() -> None:
     cache = _read_cache()
     now = time.time()
 
-    # Use cached latest version if the cache is fresh
-    if now - cache.get("checked_at", 0) < _CHECK_INTERVAL:
+    # Use cached latest version if the cache is fresh (only if not explicit)
+    if not explicit and now - cache.get("checked_at", 0) < _CHECK_INTERVAL:
         latest = cache.get("latest")
     else:
         latest = _latest_pypi_version()
         _write_cache({"checked_at": now, "latest": latest})
 
     if not latest:
+        if explicit:
+            msg = "Could not check for updates right now."
+            if state.get_config("output_mode") == "json":
+                print_json_output({"success": False, "error": msg})
+            else:
+                print_message(msg, is_error=True, emoji="❌")
         return
 
     if _parse_version(latest) <= _parse_version(__version__):
+        if explicit:
+            if state.get_config("output_mode") == "json":
+                print_json_output({"success": True, "up_to_date": True, "version": latest})
+            else:
+                print_message(f"[bold green]You are already on the latest version ({latest})[/bold green]", emoji="✔")
         return  # already up to date
 
-    console.print(
-        f"[dim]🔄 New version available: [bold]v{latest}[/bold]. Upgrading…[/dim]"
-    )
+    if state.get_config("output_mode") == "json":
+        print_json_output({"success": True, "upgrading_to": latest, "current_version": __version__})
+    else:
+        print_message(f"[dim]🔄 New version available: [bold]v{latest}[/bold]. Upgrading…[/dim]")
+
     upgrade_cmd = [
         sys.executable,
         "-m",
@@ -144,14 +189,16 @@ def auto_upgrade() -> None:
 
             subprocess.run([*upgrade_cmd, "--user"], check=True, timeout=120)
 
-        console.print(
-            f"[bold green]✔ Upgraded to v{latest}[/bold green] "
-            "[dim](takes effect on next run)[/dim]"
-        )
+        if state.get_config("output_mode") != "json":
+            print_message(
+                f"[bold green]Upgraded to v{latest}[/bold green] [dim](takes effect on next run)[/dim]",
+                emoji="✔"
+            )
         # Invalidate cache so we don't re-upgrade immediately
         _write_cache({"checked_at": now, "latest": latest})
     except Exception:
-        console.print(
-            f"[yellow]⚠ Could not auto-upgrade. Run:[/yellow] "
-            f"[bold]{sys.executable} -m pip install --upgrade --no-cache-dir --force-reinstall uvero[/bold]"
-        )
+        msg = f"Could not auto-upgrade. Run: {sys.executable} -m pip install --upgrade --no-cache-dir --force-reinstall uvero"
+        if state.get_config("output_mode") == "json" and explicit:
+            print_json_output({"success": False, "error": msg})
+        elif state.get_config("output_mode") != "json":
+            print_message(f"[yellow]{msg}[/yellow]", emoji="⚠")

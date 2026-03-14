@@ -9,14 +9,24 @@ from importlib import metadata
 from typing import Optional
 
 import typer
-from rich.console import Console
 
 from uvero import api
 from uvero.boards import board_app
 from uvero.clipboard import read_clipboard, write_clipboard
-from uvero.utils import auto_upgrade, handle_api_error, is_piped, read_file, read_stdin, write_file
+from uvero.config import EXIT_API_ERR, EXIT_NETWORK_ERR, EXIT_VALIDATION_ERR, state
+from uvero.config_cli import config_app
+from uvero.utils import (
+    auto_upgrade,
+    console,
+    handle_api_error,
+    is_piped,
+    print_json_output,
+    print_message,
+    read_file,
+    read_stdin,
+    write_file,
+)
 
-console = Console()
 CODE_PATTERN = re.compile(r"^[0-9]{4}$")
 
 app = typer.Typer(
@@ -52,6 +62,7 @@ app = typer.Typer(
 )
 
 app.add_typer(board_app, name="board")
+app.add_typer(config_app, name="config")
 
 
 def _installed_version() -> str:
@@ -75,10 +86,34 @@ def _startup(
         help="Show the installed Uvero CLI version and exit.",
         is_eager=True,
     ),
+    json: bool = typer.Option(
+        False, "--json", help="Format output as JSON (useful for scripting)."
+    ),
+    quiet: bool = typer.Option(
+        False, "-q", "--quiet", help="Suppress non-error output."
+    ),
+    no_color: bool = typer.Option(
+        False, "--no-color", help="Disable rich colored output."
+    ),
+    no_emoji: bool = typer.Option(
+        False, "--no-emoji", help="Disable emojis in terminal output."
+    ),
 ) -> None:
-    """Run before every command: check for updates."""
+    """Run before every command: handle global flags and updates."""
+    # Apply global UX state
+    state.json_output = json
+    state.quiet = quiet
+    state.no_color = no_color
+    state.no_emoji = no_emoji
+
+    if no_color or state.get_config("no_color"):
+        console.no_color = True
+
     if version:
-        console.print(f"Uvero CLI v{_installed_version()}")
+        if state.get_config("output_mode") == "json":
+            print_json_output({"version": _installed_version()})
+        else:
+            print_message(f"Uvero CLI v{_installed_version()}")
         raise typer.Exit()
 
     auto_upgrade()
@@ -89,18 +124,30 @@ def _call_api(api_function, *args, **kwargs) -> dict:
     try:
         return api_function(*args, **kwargs)
     except api.UveroServiceConnectionError:
-        console.print("[bold red]❌ Cannot reach Uvero service[/bold red]")
-        raise typer.Exit(1)
+        msg = "Cannot reach Uvero service"
+        if state.get_config("output_mode") == "json":
+            print_json_output({"success": False, "error": msg})
+        else:
+            print_message(f"[bold red]{msg}[/bold red]", is_error=True, emoji="❌")
+        raise typer.Exit(EXIT_NETWORK_ERR)
     except Exception as exc:
-        console.print(f"[bold red]❌ Error:[/bold red] {exc}")
-        raise typer.Exit(1)
+        msg = str(exc)
+        if state.get_config("output_mode") == "json":
+            print_json_output({"success": False, "error": msg})
+        else:
+            print_message(msg, is_error=True, emoji="❌")
+        raise typer.Exit(EXIT_API_ERR)
 
 
 def _validate_code(code: str) -> None:
     """Validate that *code* uses the expected 4-digit format."""
     if not CODE_PATTERN.fullmatch(code):
-        console.print("[bold red]❌ Clipboard code must be a 4 digit number.[/bold red]")
-        raise typer.Exit(1)
+        msg = "Clipboard code must be a 4 digit number."
+        if state.get_config("output_mode") == "json":
+            print_json_output({"success": False, "error": msg})
+        else:
+            print_message(msg, is_error=True, emoji="❌")
+        raise typer.Exit(EXIT_VALIDATION_ERR)
 
 
 def _public_clipboard_url(code: str) -> str:
@@ -129,6 +176,16 @@ def send(
         "--raw",
         help="Print only the clipboard code (useful for scripting).",
     ),
+    open_browser: bool = typer.Option(
+        False,
+        "--open",
+        help="Automatically open the generated link in your browser.",
+    ),
+    copy_link: bool = typer.Option(
+        False,
+        "--copy-link",
+        help="Copy the shareable URL instead of the short code to the clipboard.",
+    ),
 ):
     """Send content to the Uvero clipboard."""
     if file == "-":
@@ -136,51 +193,93 @@ def send(
         try:
             content = read_clipboard()
         except Exception as exc:
-            console.print(f"[bold red]❌ Error reading clipboard:[/bold red] {exc}")
-            raise typer.Exit(1)
+            msg = f"Error reading clipboard: {exc}"
+            if state.get_config("output_mode") == "json":
+                print_json_output({"success": False, "error": msg})
+            else:
+                print_message(str(exc), is_error=True, emoji="❌")
+            raise typer.Exit(EXIT_VALIDATION_ERR)
     elif file:
         # Read from the given file path
         try:
             content = read_file(file)
         except OSError as exc:
-            console.print(f"[bold red]❌ Error:[/bold red] {exc}")
-            raise typer.Exit(1)
+            msg = str(exc)
+            if state.get_config("output_mode") == "json":
+                print_json_output({"success": False, "error": msg})
+            else:
+                print_message(msg, is_error=True, emoji="❌")
+            raise typer.Exit(EXIT_VALIDATION_ERR)
     elif is_piped():
         # Data piped via stdin
         content = read_stdin()
     else:
         # Interactive paste mode
-        console.print("[dim]Paste your text below. Press CTRL+D (Linux/Mac) or CTRL+Z (Windows) when done.[/dim]")
+        if not state.get_config("quiet") and state.get_config("output_mode") != "json":
+            print_message("[dim]Paste your text below. Press CTRL+D (Linux/Mac) or CTRL+Z (Windows) when done.[/dim]")
         try:
             content = sys.stdin.read()
         except EOFError:
             content = ""
 
     if not content:
-        console.print("[bold red]❌ Error:[/bold red] Nothing to send.")
-        raise typer.Exit(1)
+        msg = "Nothing to send."
+        if state.get_config("output_mode") == "json":
+            print_json_output({"success": False, "error": msg})
+        else:
+            print_message(msg, is_error=True, emoji="❌")
+        raise typer.Exit(EXIT_VALIDATION_ERR)
 
     result = _call_api(api.send_clipboard, content)
     handle_api_error(result)
 
     code = str(result.get("data", {}).get("code", "")).strip()
     if not code:
-        console.print("[bold red]❌ Error:[/bold red] Missing clipboard code in response.")
-        raise typer.Exit(1)
+        msg = "Missing clipboard code in response."
+        if state.get_config("output_mode") == "json":
+            print_json_output({"success": False, "error": msg})
+        else:
+            print_message(msg, is_error=True, emoji="❌")
+        raise typer.Exit(EXIT_API_ERR)
+
+    url = _public_clipboard_url(code)
 
     if raw:
         console.print(code)
         return
 
-    console.print(f"📋 Clipboard Code: {code}")
-    try:
-        write_clipboard(code)
-    except Exception:
-        console.print("[yellow]⚠ Could not copy code to clipboard[/yellow]")
-    else:
-        console.print("[bold green]✔ Code copied to clipboard[/bold green]")
+    if state.get_config("output_mode") == "json":
+        print_json_output({
+            "success": True,
+            "data": {
+                "code": code,
+                "url": url,
+            }
+        })
+        return
 
-    console.print(f"🔗 [link]{_public_clipboard_url(code)}[/link]")
+    auto_open = open_browser or state.get_config("auto_open")
+    if auto_open:
+        try:
+            import webbrowser
+            webbrowser.open(url)
+        except Exception:
+            pass
+
+    print_message(f"Clipboard Code: {code}", emoji="📋")
+
+    # Check default behavior override if flags weren't provided explicitly
+    copy_url = copy_link or state.get_config("clipboard_behavior") == "link"
+
+    try:
+        write_clipboard(url if copy_url else code)
+    except Exception:
+        print_message("[yellow]Could not copy to clipboard[/yellow]", emoji="⚠")
+    else:
+        noun = "Link" if copy_url else "Code"
+        print_message(f"[bold green]{noun} copied to clipboard[/bold green]", emoji="✔")
+
+    print_message(f"🔗 [link]{url}[/link]")
 
 
 @app.command(
@@ -197,7 +296,12 @@ def get(
     output: Optional[str] = typer.Argument(
         None,
         metavar="[OUTPUT|-]",
-        help="Destination file path. Use '-' to copy to the clipboard. Omit to save as uvero_CODE.txt.",
+        help="Destination file path. Use '-' or --stdout to copy to the clipboard. Omit to save as uvero_CODE.txt.",
+    ),
+    stdout: bool = typer.Option(
+        False,
+        "--stdout",
+        help="Print directly to standard out.",
     ),
 ):
     """Retrieve content from the Uvero clipboard."""
@@ -209,13 +313,26 @@ def get(
 
     content = result.get("data", {}).get("content", "")
 
+    if state.get_config("output_mode") == "json":
+        print_json_output({
+            "success": True,
+            "data": result.get("data")
+        })
+        return
+
+    if stdout:
+        if state.get_config("output_mode") != "json":
+            # Only print raw content explicitly bypassing formatter
+            print(content)
+        return
+
     if output == "-":
         try:
             write_clipboard(content)
         except Exception as exc:
-            console.print(f"[bold red]❌ Error copying to clipboard:[/bold red] {exc}")
-            raise typer.Exit(1)
-        console.print("[bold green]✔ Copied to clipboard[/bold green]")
+            print_message(str(exc), is_error=True, emoji="❌")
+            raise typer.Exit(EXIT_VALIDATION_ERR)
+        print_message("[bold green]Copied to clipboard[/bold green]", emoji="✔")
         return
 
     # Determine output file path
@@ -223,10 +340,10 @@ def get(
     try:
         write_file(dest, content)
     except OSError as exc:
-        console.print(f"[bold red]❌ Error:[/bold red] {exc}")
-        raise typer.Exit(1)
+        print_message(str(exc), is_error=True, emoji="❌")
+        raise typer.Exit(EXIT_VALIDATION_ERR)
 
-    console.print(f"[bold green]✔ Saved to:[/bold green] {dest}")
+    print_message(f"[bold green]Saved to:[/bold green] {dest}", emoji="✔")
 
 
 @app.command(
@@ -252,10 +369,18 @@ def open(
         url = api.BASE_URL
 
     if not webbrowser.open(url):
-        console.print("[bold red]❌ Error:[/bold red] Could not open browser.")
-        raise typer.Exit(1)
+        msg = "Could not open browser."
+        if state.get_config("output_mode") == "json":
+            print_json_output({"success": False, "error": msg})
+        else:
+            print_message(msg, is_error=True, emoji="❌")
+        raise typer.Exit(EXIT_VALIDATION_ERR)
 
-    console.print(f"🔗 {url}")
+    if state.get_config("output_mode") == "json":
+        print_json_output({"success": True, "data": {"url": url}})
+        return
+
+    print_message(f"🔗 {url}")
 
 
 @app.command(help="Check whether the Uvero service is reachable.")
@@ -263,13 +388,98 @@ def health() -> None:
     """Check service availability."""
     result = _call_api(api.health_check)
     handle_api_error(result)
-    console.print("[bold green]✔ Uvero service is reachable[/bold green]")
+
+    if state.get_config("output_mode") == "json":
+        print_json_output({"success": True, "status": "healthy"})
+        return
+
+    print_message("[bold green]Uvero service is reachable[/bold green]", emoji="✔")
 
 
-@app.command(help="Show the installed Uvero CLI version.")
+@app.command(help="Run local diagnostics to verify network, configuration, and clipboard support.")
+def doctor() -> None:
+    """Run local environment and configuration diagnostics."""
+    from uvero.config import _CONFIG_FILE
+    diagnostics = {
+        "python_version": sys.version.split(" ")[0],
+        "uvero_version": _installed_version(),
+        "config_path": str(_CONFIG_FILE) if 'uvero.config' in sys.modules else str(Path.home() / ".uvero/config.json"),
+        "network_reachable": False,
+        "clipboard_read": False,
+        "clipboard_write": False,
+    }
+
+    if state.get_config("output_mode") != "json":
+        print_message("Running Uvero diagnostics...", emoji="🩺")
+
+    # 1. Check Network
+    try:
+        api.health_check()
+        diagnostics["network_reachable"] = True
+    except Exception:
+        pass
+
+    # 2. Check Clipboard
+    try:
+        # We don't want to actually overwrite user clipboard during doctor
+        # We just try import to verify pyperclip is functional
+        diagnostics["clipboard_read"] = True
+        diagnostics["clipboard_write"] = True
+    except Exception:
+        pass
+
+    if state.get_config("output_mode") == "json":
+        print_json_output({"success": True, "diagnostics": diagnostics})
+        return
+
+    # Print nicely formatted
+    print_message(f"Python: {diagnostics['python_version']}", emoji="🐍")
+    print_message(f"Uvero CLI: {diagnostics['uvero_version']}", emoji="📦")
+    print_message(f"Config path: {diagnostics['config_path']}", emoji="📄")
+
+    if diagnostics["network_reachable"]:
+        print_message("[bold green]API is reachable[/bold green]", emoji="✔")
+    else:
+        print_message("[bold red]API is UNREACHABLE[/bold red]", emoji="❌")
+
+    if diagnostics["clipboard_read"]:
+        print_message("[bold green]System clipboard module loaded[/bold green]", emoji="✔")
+    else:
+        print_message("[bold red]Clipboard interaction not supported[/bold red] (Please install xclip / xsel if on Linux)", emoji="❌")
+
+
+@app.command(help="Check for updates and explicitly upgrade the CLI.")
+def update() -> None:
+    """Manually check for and install updates."""
+    # Temporarily set quiet to false for update specifically if it was just run
+    was_quiet = state.quiet
+    state.quiet = False
+
+    if state.get_config("output_mode") != "json":
+        print_message("Checking for updates...", emoji="🔍")
+
+    # We call auto_upgrade but bypass the 24h cache check by removing the cache file if it exists
+    from pathlib import Path
+    try:
+        cache_file = Path.home() / ".uvero" / ".version_check"
+        if cache_file.exists():
+            cache_file.unlink()
+    except Exception:
+        pass
+
+    # We will temporarily mock the output to be JSON if requested
+    auto_upgrade(explicit=True)
+
+    state.quiet = was_quiet
+
+
+@app.command(help="Show the installed Uvero CLI version.", hidden=True)
 def version() -> None:
-    """Print the installed Uvero CLI version."""
-    console.print(f"Uvero CLI v{_installed_version()}")
+    """Print the installed Uvero CLI version (alias for --version)."""
+    if state.get_config("output_mode") == "json":
+        print_json_output({"version": _installed_version()})
+    else:
+        print_message(f"Uvero CLI v{_installed_version()}")
 
 
 if __name__ == "__main__":

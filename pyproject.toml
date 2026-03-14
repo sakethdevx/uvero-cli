@@ -36,6 +36,16 @@ dependencies = [
     "rich>=13.0.0",
 ]
 
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-mock>=3.10.0",
+    "responses>=0.23.0",
+    "ruff>=0.8.0",
+    "mypy>=1.0.0",
+    "types-requests>=2.28.0",
+]
+
 [project.urls]
 Homepage = "https://uvero.app"
 Repository = "https://github.com/sakethdevx/uvero-cli"
@@ -47,3 +57,21 @@ uvero = "uvero.cli:app"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["uvero*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py38"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
