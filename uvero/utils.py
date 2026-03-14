@@ -30,7 +30,6 @@ def print_message(message: str, is_error: bool = False, emoji: str = "") -> None
     formatted_message = f"{emoji_prefix}{message}"
 
     if is_error:
-
         console.stderr = True
         console.print(f"[bold red]{emoji_prefix}Error:[/bold red] {message}")
         console.stderr = False
