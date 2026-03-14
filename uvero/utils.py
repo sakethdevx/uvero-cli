@@ -7,6 +7,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from importlib import metadata
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
@@ -72,7 +73,19 @@ def handle_api_error(response: Dict[str, Any]) -> None:
             print_json_output({"success": False, "error": error_msg})
         else:
             print_message(error_msg, is_error=True, emoji="❌")
-        raise SystemExit(EXIT_API_ERR)
+            raise SystemExit(EXIT_API_ERR)
+
+
+def _installed_version() -> str:
+    """Return the installed Uvero CLI version."""
+    from uvero import __version__
+
+    try:
+        distribution_version = metadata.version("uvero")
+    except metadata.PackageNotFoundError:
+        return __version__
+
+    return __version__ if distribution_version != __version__ else distribution_version
 
 
 # ---------------------------------------------------------------------------
@@ -159,19 +172,20 @@ def auto_upgrade(explicit: bool = False) -> bool:
                 print_message(msg, is_error=True, emoji="❌")
         return False
 
-    if _parse_version(latest) <= _parse_version(__version__):
+    current = _installed_version()
+    if _parse_version(latest) <= _parse_version(current):
         if explicit:
             if state.get_config("output_mode") == "json":
-                print_json_output({"success": True, "up_to_date": True, "version": latest})
+                print_json_output({"success": True, "up_to_date": True, "version": current})
             else:
                 print_message(
-                    f"[bold green]You are already on the latest version ({latest})[/bold green]",
+                    f"[bold green]You are already on the latest version ({current})[/bold green]",
                     emoji="✔",
                 )
         return False  # already up to date
 
     if state.get_config("output_mode") == "json":
-        print_json_output({"success": True, "upgrading_to": latest, "current_version": __version__})
+        print_json_output({"success": True, "upgrading_to": latest, "current_version": current})
     else:
         print_message(f"[dim]🔄 New version available: [bold]v{latest}[/bold]. Upgrading…[/dim]")
 

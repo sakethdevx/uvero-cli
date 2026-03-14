@@ -20,6 +20,7 @@ from uvero.utils import (
     auto_upgrade,
     console,
     handle_api_error,
+    _installed_version,
     is_piped,
     print_json_output,
     print_message,
@@ -66,16 +67,6 @@ app.add_typer(board_app, name="board")
 app.add_typer(config_app, name="config")
 
 
-def _installed_version() -> str:
-    """Return the installed Uvero CLI version."""
-    from uvero import __version__
-
-    try:
-        distribution_version = metadata.version("uvero")
-    except metadata.PackageNotFoundError:
-        return __version__
-
-    return __version__ if distribution_version != __version__ else distribution_version
 
 
 @app.callback(invoke_without_command=True)
