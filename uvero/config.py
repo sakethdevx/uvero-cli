@@ -18,7 +18,7 @@ EXIT_ENV_ERR = 5
 class GlobalState:
     """Manages global CLI state and user-defined configuration defaults."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.config = self._load_config()
         self.json_output = False
         self.quiet = False
@@ -28,7 +28,7 @@ class GlobalState:
     def _load_config(self) -> Dict[str, Any]:
         """Load configuration from ~/.uvero/config.json."""
         try:
-            return json.loads(_CONFIG_FILE.read_text())
+            return dict(json.loads(_CONFIG_FILE.read_text()))
         except Exception:
             return {}
 

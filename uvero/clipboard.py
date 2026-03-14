@@ -1,11 +1,13 @@
 """System clipboard helpers (read / write) using pyperclip."""
 
+from typing import Any
+
 import pyperclip
 
 
 def read_clipboard() -> str:
     """Return the current system clipboard content."""
-    return pyperclip.paste()
+    return str(pyperclip.paste())
 
 
 def write_clipboard(text: str) -> None:

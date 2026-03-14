@@ -8,7 +8,7 @@ import time
 import urllib.error
 import urllib.request
 from pathlib import Path
-from typing import Optional
+from typing import Any, Dict, Optional, Tuple
 
 from rich.console import Console
 
@@ -30,12 +30,16 @@ def print_message(message: str, is_error: bool = False, emoji: str = "") -> None
     formatted_message = f"{emoji_prefix}{message}"
 
     if is_error:
-        console.print(f"[bold red]{emoji_prefix}Error:[/bold red] {message}", stderr=True)
+        import sys
+        
+        console.stderr = True
+        console.print(f"[bold red]{emoji_prefix}Error:[/bold red] {message}")
+        console.stderr = False
     else:
         console.print(formatted_message)
 
 
-def print_json_output(data: dict) -> None:
+def print_json_output(data: Dict[str, Any]) -> None:
     """Print JSON output mapping to stdout."""
     # Ensure stdout isn't colored unless explicitly forcing rich JSON
     # Python json.dumps guarantees machine readability
@@ -62,7 +66,7 @@ def write_file(path: str, content: str) -> None:
     Path(path).write_text(content, encoding="utf-8")
 
 
-def handle_api_error(response: dict) -> None:
+def handle_api_error(response: Dict[str, Any]) -> None:
     """Print a rich error message and raise SystemExit if the API returned an error."""
     if not response.get("success", True):
         error_msg = response.get("error", "Unknown error")
@@ -83,14 +87,14 @@ _CHECK_INTERVAL = 86400  # 24 hours in seconds
 _PYPI_URL = "https://pypi.org/pypi/uvero/json"
 
 
-def _read_cache() -> dict:
+def _read_cache() -> Dict[str, Any]:
     try:
-        return json.loads(_CACHE_FILE.read_text())
+        return dict(json.loads(_CACHE_FILE.read_text()))
     except Exception:
         return {}
 
 
-def _write_cache(data: dict) -> None:
+def _write_cache(data: Dict[str, Any]) -> None:
     try:
         _CACHE_DIR.mkdir(parents=True, exist_ok=True)
         _CACHE_FILE.write_text(json.dumps(data))
@@ -102,13 +106,13 @@ def _latest_pypi_version() -> Optional[str]:
     """Fetch the latest published version from PyPI (returns None on any failure)."""
     try:
         with urllib.request.urlopen(_PYPI_URL, timeout=5) as resp:
-            data = json.load(resp)
-            return data["info"]["version"]
+            data = dict(json.load(resp))
+            return str(data["info"]["version"])
     except Exception:
         return None
 
 
-def _parse_version(v: str) -> tuple[int, ...]:
+def _parse_version(v: str) -> Tuple[int, ...]:
     try:
         return tuple(int(x) for x in v.split("."))
     except Exception:

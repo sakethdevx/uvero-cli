@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import getpass
 import sys
-from typing import Optional
+from typing import Any, Callable, Dict, Optional
 
 import typer
 
@@ -23,7 +23,9 @@ board_app = typer.Typer(
 )
 
 
-def _call_api(api_function, *args, **kwargs) -> dict:
+def _call_api(
+    api_function: Callable[..., Dict[str, Any]], *args: Any, **kwargs: Any
+) -> Dict[str, Any]:
     """Run a backend call and map connection failures to a clean CLI message."""
     try:
         return api_function(*args, **kwargs)
@@ -36,7 +38,7 @@ def _call_api(api_function, *args, **kwargs) -> dict:
 
 
 @board_app.command("create")
-def board_create():
+def board_create() -> None:
     """Create a new private board."""
     result = _call_api(api.create_board)
 
@@ -52,7 +54,7 @@ def board_send(
         None,
         help="File to upload. Omit for interactive paste or pipe stdin.",
     ),
-):
+) -> None:
     """Send content to a board."""
     if file:
         try:
@@ -78,7 +80,7 @@ def board_send(
 @board_app.command("get")
 def board_get(
     board: str = typer.Argument(..., help="Board identifier"),
-):
+) -> None:
     """Retrieve content from a board."""
     result = _call_api(api.get_board, board)
 

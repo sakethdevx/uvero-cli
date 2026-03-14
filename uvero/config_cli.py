@@ -1,5 +1,7 @@
 """Configuration commands for Uvero CLI."""
 
+from typing import Any
+
 import typer
 from rich.table import Table
 
@@ -14,7 +16,7 @@ config_app = typer.Typer(
 
 
 @config_app.command("set")
-def set_config(key: str, value: str):
+def set_config(key: str, value: str) -> None:
     """Set a configuration value (e.g., output_mode json)."""
     valid_keys = {"output_mode", "auto_open", "clipboard_behavior", "quiet", "no_color", "no_emoji"}
     if key not in valid_keys:
@@ -26,6 +28,7 @@ def set_config(key: str, value: str):
         raise typer.Exit(EXIT_VALIDATION_ERR)
 
     # Cast boolean strings correctly
+    parsed_value: Any
     if value.lower() in ("true", "1", "yes"):
         parsed_value = True
     elif value.lower() in ("false", "0", "no"):
@@ -41,7 +44,7 @@ def set_config(key: str, value: str):
 
 
 @config_app.command("get")
-def get_config(key: str):
+def get_config(key: str) -> None:
     """Get a configuration value."""
     if key not in state.config:
         msg = f"Config key '{key}' is not set."
@@ -59,7 +62,7 @@ def get_config(key: str):
 
 
 @config_app.command("list")
-def list_config():
+def list_config() -> None:
     """List all user-defined configuration values."""
     if state.get_config("output_mode") == "json":
         print_json_output({"success": True, "config": state.config})

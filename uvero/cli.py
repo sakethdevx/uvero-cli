@@ -7,7 +7,7 @@ import sys
 import webbrowser
 from importlib import metadata
 from pathlib import Path
-from typing import Optional
+from typing import Any, Callable, Dict, Optional
 
 import typer
 
@@ -114,7 +114,9 @@ def _startup(
     auto_upgrade()
 
 
-def _call_api(api_function, *args, **kwargs) -> dict:
+def _call_api(
+    api_function: Callable[..., Dict[str, Any]], *args: Any, **kwargs: Any
+) -> Dict[str, Any]:
     """Run a backend call and map connection failures to a clean CLI message."""
     try:
         return api_function(*args, **kwargs)
@@ -181,7 +183,7 @@ def send(
         "--copy-link",
         help="Copy the shareable URL instead of the short code to the clipboard.",
     ),
-):
+) -> None:
     """Send content to the Uvero clipboard."""
     if file == "-":
         # Read from system clipboard
@@ -298,7 +300,7 @@ def get(
         "--stdout",
         help="Print directly to standard out.",
     ),
-):
+) -> None:
     """Retrieve content from the Uvero clipboard."""
     _validate_code(code)
 
@@ -335,7 +337,7 @@ def get(
         print_message(str(exc), is_error=True, emoji="❌")
         raise typer.Exit(EXIT_VALIDATION_ERR) from exc
 
-    print_message(f"[bold green]Saved to:[/bold green] {dest}", emoji="✔")
+        print_message(f"[bold green]Saved to:[/bold green] {dest}", emoji="✔")
 
 
 @app.command(
@@ -348,7 +350,7 @@ def open(
         metavar="[CODE]",
         help="Clipboard code to open. Omit to open Uvero home page.",
     ),
-):
+) -> None:
     """Open Uvero in the default web browser."""
     if code is not None:
         _validate_code(code)

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any, Callable, Dict
+
 import requests
 
 BASE_URL = "https://uvero.app"
@@ -15,7 +17,7 @@ def _url(path: str) -> str:
     return f"{BASE_URL}{path}"
 
 
-def _request(method: str, path: str, *, timeout: int, **kwargs) -> requests.Response:
+def _request(method: str, path: str, *, timeout: int, **kwargs: Any) -> requests.Response:
     """Execute an HTTP request and map network failures to a dedicated error."""
     try:
         return requests.request(
@@ -28,7 +30,7 @@ def _request(method: str, path: str, *, timeout: int, **kwargs) -> requests.Resp
         raise UveroServiceConnectionError("Cannot reach Uvero service") from exc
 
 
-def send_clipboard(content: str) -> dict:
+def send_clipboard(content: str) -> Dict[str, Any]:
     """Upload *content* to the clipboard service and return the JSON response."""
     response = _request(
         "POST",
@@ -37,10 +39,10 @@ def send_clipboard(content: str) -> dict:
         timeout=15,
     )
     response.raise_for_status()
-    return response.json()
+    return dict(response.json())
 
 
-def get_clipboard(code: str) -> dict:
+def get_clipboard(code: str) -> Dict[str, Any]:
     """Fetch clipboard entry identified by *code* and return the JSON response."""
     response = _request(
         "GET",
@@ -48,12 +50,12 @@ def get_clipboard(code: str) -> dict:
         timeout=15,
     )
     response.raise_for_status()
-    return response.json()
+    return dict(response.json())
 
 
-def create_board(password: str | None = None) -> dict:
+def create_board(password: str | None = None) -> Dict[str, Any]:
     """Create a new private board and return the JSON response."""
-    payload: dict = {}
+    payload: Dict[str, Any] = {}
     if password:
         payload["password"] = password
     response = _request(
@@ -63,12 +65,12 @@ def create_board(password: str | None = None) -> dict:
         timeout=15,
     )
     response.raise_for_status()
-    return response.json()
+    return dict(response.json())
 
 
-def send_board(board: str, content: str, password: str | None = None) -> dict:
+def send_board(board: str, content: str, password: str | None = None) -> Dict[str, Any]:
     """Send *content* to *board* and return the JSON response."""
-    payload: dict = {"board": board, "content": content}
+    payload: Dict[str, Any] = {"board": board, "content": content}
     if password:
         payload["password"] = password
     response = _request(
@@ -78,12 +80,12 @@ def send_board(board: str, content: str, password: str | None = None) -> dict:
         timeout=15,
     )
     response.raise_for_status()
-    return response.json()
+    return dict(response.json())
 
 
-def get_board(board: str, password: str | None = None) -> dict:
+def get_board(board: str, password: str | None = None) -> Dict[str, Any]:
     """Retrieve content from *board* and return the JSON response."""
-    params: dict = {}
+    params: Dict[str, Any] = {}
     if password:
         params["password"] = password
     response = _request(
@@ -93,10 +95,10 @@ def get_board(board: str, password: str | None = None) -> dict:
         timeout=15,
     )
     response.raise_for_status()
-    return response.json()
+    return dict(response.json())
 
 
-def health_check() -> dict:
+def health_check() -> Dict[str, Any]:
     """Call the CLI health endpoint and return the JSON response."""
     response = _request(
         "GET",
@@ -104,4 +106,4 @@ def health_check() -> dict:
         timeout=10,
     )
     response.raise_for_status()
-    return response.json()
+    return dict(response.json())
