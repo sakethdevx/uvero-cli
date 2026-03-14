@@ -111,7 +111,8 @@ def _startup(
             print_message(f"Uvero CLI v{_installed_version()}")
         raise typer.Exit()
 
-    auto_upgrade()
+    if auto_upgrade():
+        raise typer.Exit()
 
 
 def _call_api(

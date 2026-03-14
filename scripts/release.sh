@@ -15,8 +15,10 @@ echo "🚀 Bumping version to $VERSION"
 # Update pyproject.toml
 if [[ "$OSTYPE" == "darwin"* ]]; then
     sed -i '' "s/^version = \".*\"/version = \"$VERSION\"/" pyproject.toml
+    sed -i '' "s/__version__ = \".*\"/__version__ = \"$VERSION\"/" uvero/__init__.py
 else
     sed -i "s/^version = \".*\"/version = \"$VERSION\"/" pyproject.toml
+    sed -i "s/__version__ = \".*\"/__version__ = \"$VERSION\"/" uvero/__init__.py
 fi
 
 # Determine previous tag to generate changelog

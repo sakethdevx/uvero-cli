@@ -123,8 +123,12 @@ def _in_virtualenv() -> bool:
     )
 
 
-def auto_upgrade(explicit: bool = False) -> None:
-    """Check PyPI at most once per day and auto-upgrade if a newer version exists."""
+def auto_upgrade(explicit: bool = False) -> bool:
+    """Check PyPI at most once per day and auto-upgrade if a newer version exists.
+
+    Returns:
+        True if an upgrade was performed, False otherwise.
+    """
     from uvero import __version__
     from uvero.config import state
 
@@ -134,7 +138,7 @@ def auto_upgrade(explicit: bool = False) -> None:
         "no",
         "off",
     }:
-        return
+        return False
 
     cache = _read_cache()
     now = time.time()
@@ -153,7 +157,7 @@ def auto_upgrade(explicit: bool = False) -> None:
                 print_json_output({"success": False, "error": msg})
             else:
                 print_message(msg, is_error=True, emoji="❌")
-        return
+        return False
 
     if _parse_version(latest) <= _parse_version(__version__):
         if explicit:
@@ -164,7 +168,7 @@ def auto_upgrade(explicit: bool = False) -> None:
                     f"[bold green]You are already on the latest version ({latest})[/bold green]",
                     emoji="✔",
                 )
-        return  # already up to date
+        return False  # already up to date
 
     if state.get_config("output_mode") == "json":
         print_json_output({"success": True, "upgrading_to": latest, "current_version": __version__})
@@ -198,9 +202,11 @@ def auto_upgrade(explicit: bool = False) -> None:
             )
         # Invalidate cache so we don't re-upgrade immediately
         _write_cache({"checked_at": now, "latest": latest})
+        return True
     except Exception:
         msg = f"Could not auto-upgrade. Run: {sys.executable} -m pip install --upgrade --no-cache-dir --force-reinstall uvero"
         if state.get_config("output_mode") == "json" and explicit:
             print_json_output({"success": False, "error": msg})
         elif state.get_config("output_mode") != "json":
             print_message(f"[yellow]{msg}[/yellow]", emoji="⚠")
+        return False
