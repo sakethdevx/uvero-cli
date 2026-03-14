@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "uvero"
-version = "0.1.4"
+version = "0.2.0"
 description = "Uvero CLI – online clipboard from your terminal"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -59,14 +59,14 @@ include = ["uvero*"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py38"
+target-version = "0.2.0"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B"]
 ignore = ["E501"]
 
 [tool.mypy]
-python_version = "3.8"
+python_version = "0.2.0"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
