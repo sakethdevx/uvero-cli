@@ -14,8 +14,10 @@ Run the built-in help first if you want a command overview:
 
 ```bash
 uvero --help
+uvero --version
 uvero send --help
 uvero get --help
+uvero health
 uvero open --help
 uvero version
 uvero board --help
@@ -26,6 +28,8 @@ uvero board --help
 - `uvero send` uploads content, gives you a share code, and copies the code to your clipboard.
 - Public share links use `https://uvero.app/c/CODE`.
 - `uvero get CODE` retrieves content using that code.
+- `uvero open [CODE]` opens Uvero in your browser (home page if code is omitted).
+- `uvero health` checks whether the Uvero service is reachable.
 - A single `-` is special:
   - `uvero send -` reads from your system clipboard.
   - `uvero get CODE -` writes to your system clipboard.
@@ -69,12 +73,23 @@ If you omit the output path, Uvero saves the content to `uvero_CODE.txt`.
 ### Open a clipboard link in browser
 
 ```bash
+# Open Uvero home page
+uvero open
+
+# Open clipboard page
 uvero open 4832
+```
+
+### Check service health
+
+```bash
+uvero health
 ```
 
 ### Show CLI version
 
 ```bash
+uvero --version
 uvero version
 ```
 
@@ -83,6 +98,11 @@ uvero version
 - On startup, Uvero checks PyPI (max once every 24 hours) and auto-upgrades when a newer version is available.
 - The updated version is used from the next command run.
 - To disable auto-upgrade, set `UVERO_AUTO_UPGRADE=0`.
+- Manual upgrade command:
+
+```bash
+python -m pip install --upgrade --no-cache-dir --force-reinstall uvero
+```
 
 ### Boards (private shared clipboards)
 

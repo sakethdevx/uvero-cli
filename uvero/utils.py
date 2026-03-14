@@ -86,6 +86,13 @@ def _parse_version(v: str) -> tuple[int, ...]:
         return (0,)
 
 
+def _in_virtualenv() -> bool:
+    return bool(
+        hasattr(sys, "real_prefix")
+        or getattr(sys, "base_prefix", sys.prefix) != sys.prefix
+    )
+
+
 def auto_upgrade() -> None:
     """Check PyPI at most once per day and auto-upgrade if a newer version exists."""
     from uvero import __version__
@@ -117,12 +124,26 @@ def auto_upgrade() -> None:
     console.print(
         f"[dim]🔄 New version available: [bold]v{latest}[/bold]. Upgrading…[/dim]"
     )
+    upgrade_cmd = [
+        sys.executable,
+        "-m",
+        "pip",
+        "install",
+        "--upgrade",
+        "--no-cache-dir",
+        "--force-reinstall",
+        "uvero",
+    ]
+
     try:
-        subprocess.run(
-            [sys.executable, "-m", "pip", "install", "--upgrade", "--quiet", "uvero"],
-            check=True,
-            timeout=60,
-        )
+        try:
+            subprocess.run(upgrade_cmd, check=True, timeout=120)
+        except subprocess.CalledProcessError:
+            if _in_virtualenv():
+                raise
+
+            subprocess.run([*upgrade_cmd, "--user"], check=True, timeout=120)
+
         console.print(
             f"[bold green]✔ Upgraded to v{latest}[/bold green] "
             "[dim](takes effect on next run)[/dim]"
@@ -132,5 +153,5 @@ def auto_upgrade() -> None:
     except Exception:
         console.print(
             f"[yellow]⚠ Could not auto-upgrade. Run:[/yellow] "
-            f"[bold]pip install --upgrade uvero[/bold]"
+            f"[bold]{sys.executable} -m pip install --upgrade --no-cache-dir --force-reinstall uvero[/bold]"
         )

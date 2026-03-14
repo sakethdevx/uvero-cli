@@ -26,7 +26,7 @@ app = typer.Typer(
         "Use `uvero send` to upload text from a file, stdin, interactive paste, "
         "or your system clipboard. Use `uvero get CODE` to save content to a file, "
         "or `uvero get CODE -` to copy it directly to your clipboard. "
-        "Use `uvero open CODE` to open a share URL in your browser.\n\n"
+        "Use `uvero open [CODE]` to open Uvero in your browser.\n\n"
         "Use `uvero board` for private shared boards."
     ),
     epilog=(
@@ -39,7 +39,10 @@ app = typer.Typer(
         "  uvero get 1234\n"
         "  uvero get 1234 notes.txt\n"
         "  uvero get 1234 -\n"
+        "  uvero health\n"
+        "  uvero open\n"
         "  uvero open 1234\n"
+        "  uvero --version\n"
         "  uvero version\n"
         "  uvero board --help"
     ),
@@ -51,9 +54,33 @@ app = typer.Typer(
 app.add_typer(board_app, name="board")
 
 
+def _installed_version() -> str:
+    """Return the installed Uvero CLI version."""
+    from uvero import __version__
+
+    try:
+        distribution_version = metadata.version("uvero")
+    except metadata.PackageNotFoundError:
+        return __version__
+
+    return __version__ if distribution_version != __version__ else distribution_version
+
+
 @app.callback(invoke_without_command=True)
-def _startup(ctx: typer.Context) -> None:
+def _startup(
+    ctx: typer.Context,
+    version: bool = typer.Option(
+        False,
+        "--version",
+        help="Show the installed Uvero CLI version and exit.",
+        is_eager=True,
+    ),
+) -> None:
     """Run before every command: check for updates."""
+    if version:
+        console.print(f"Uvero CLI v{_installed_version()}")
+        raise typer.Exit()
+
     auto_upgrade()
 
 
@@ -203,19 +230,27 @@ def get(
 
 
 @app.command(
-    help="Open a public clipboard URL in your default browser.",
+    help="Open Uvero in your default browser.",
     epilog=(
         "Examples:\n"
+        "  uvero open\n"
         "  uvero open 4832"
     ),
 )
 def open(
-    code: str = typer.Argument(..., metavar="CODE", help="Clipboard code to open."),
+    code: Optional[str] = typer.Argument(
+        None,
+        metavar="[CODE]",
+        help="Clipboard code to open. Omit to open Uvero home page.",
+    ),
 ):
-    """Open a clipboard share page in the default web browser."""
-    _validate_code(code)
+    """Open Uvero in the default web browser."""
+    if code is not None:
+        _validate_code(code)
+        url = _public_clipboard_url(code)
+    else:
+        url = api.BASE_URL
 
-    url = _public_clipboard_url(code)
     if not webbrowser.open(url):
         console.print("[bold red]❌ Error:[/bold red] Could not open browser.")
         raise typer.Exit(1)
@@ -223,17 +258,18 @@ def open(
     console.print(f"🔗 {url}")
 
 
+@app.command(help="Check whether the Uvero service is reachable.")
+def health() -> None:
+    """Check service availability."""
+    result = _call_api(api.health_check)
+    handle_api_error(result)
+    console.print("[bold green]✔ Uvero service is reachable[/bold green]")
+
+
 @app.command(help="Show the installed Uvero CLI version.")
 def version() -> None:
     """Print the installed Uvero CLI version."""
-    try:
-        installed_version = metadata.version("uvero")
-    except metadata.PackageNotFoundError:
-        from uvero import __version__
-
-        installed_version = __version__
-
-    console.print(f"Uvero CLI v{installed_version}")
+    console.print(f"Uvero CLI v{_installed_version()}")
 
 
 if __name__ == "__main__":
