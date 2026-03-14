@@ -1,6 +1,5 @@
 """System clipboard helpers (read / write) using pyperclip."""
 
-from typing import Any
 
 import pyperclip
 
