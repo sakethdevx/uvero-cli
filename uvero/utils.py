@@ -14,6 +14,7 @@ from typing import Callable, Optional
 import typer
 from rich.console import Console
 from rich.panel import Panel
+from rich.text import Text
 from rich.table import Table
 
 from uvero import api
@@ -79,7 +80,12 @@ def warn_deprecated_usage(old: str, new: str) -> None:
     console.print(f"[yellow]Warning:[/yellow] {old} is deprecated. Use {new} instead.")
 
 
-def render_summary(title: str, rows: list[tuple[str, str]], *, style: str = "green") -> None:
+def render_summary(
+    title: str,
+    rows: list[tuple[str, str | Text]],
+    *,
+    style: str = "green",
+) -> None:
     """Render a compact summary panel for successful commands."""
     table = Table.grid(padding=(0, 1))
     table.add_column(style="bold")

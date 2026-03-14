@@ -8,6 +8,7 @@ from importlib import metadata
 from typing import Optional
 
 import typer
+from rich.text import Text
 
 from uvero import api
 from uvero.boards import board_app
@@ -105,6 +106,11 @@ def _public_clipboard_url(code: str) -> str:
     return f"{api.BASE_URL}/c/{code}"
 
 
+def _link_text(url: str) -> Text:
+    """Return a clickable Rich hyperlink when supported by the terminal."""
+    return Text(url, style=f"link {url}")
+
+
 @app.command(
     help="Send text to Uvero from interactive paste, your clipboard, stdin, or a file.",
     epilog=(
@@ -181,7 +187,7 @@ def send(
         [
             ("Code", code),
             ("Code saved", clipboard_status),
-            ("Link", _public_clipboard_url(code)),
+            ("Link", _link_text(_public_clipboard_url(code))),
             ("Next step", f"uvero get {code}"),
         ],
     )
@@ -247,7 +253,7 @@ def get(
         [
             ("Code", code),
             ("Saved to", delivered_to),
-            ("Open link", _public_clipboard_url(code)),
+            ("Open link", _link_text(_public_clipboard_url(code))),
         ],
     )
 
@@ -290,7 +296,7 @@ def health() -> None:
         "Health",
         [
             ("Service", "Reachable"),
-            ("Base URL", api.BASE_URL),
+            ("Base URL", _link_text(api.BASE_URL)),
         ],
     )
 
